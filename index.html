@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WP Structure Architect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.min.css" rel="stylesheet" />
     <style>
       /* Custom Scrollbar for cleaner look */
       ::-webkit-scrollbar {
@@ -31,29 +29,9 @@
       .tree-node-enter { opacity: 0; transform: translateX(-10px); }
       .tree-node-enter-active { opacity: 1; transform: translateX(0); transition: all 200ms; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@0.0.12",
-    "lucide-react": "https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0",
-    "reactflow": "https://esm.sh/reactflow@11.11.4?deps=react@18.2.0,react-dom@18.2.0",
-    "reactflow/": "https://esm.sh/reactflow@11.11.4/",
-    "dagre": "https://esm.sh/dagre@0.8.5",
-    "react-arborist": "https://esm.sh/react-arborist@3.4.0?deps=react@18.2.0,react-dom@18.2.0",
-    "react-virtualized-auto-sizer": "https://esm.sh/react-virtualized-auto-sizer@1.0.24?deps=react@18.2.0,react-dom@18.2.0",
-    "clsx": "https://esm.sh/clsx@2.1.0",
-    "jszip": "https://esm.sh/jszip@3.10.1",
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
-</head>
+  </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
