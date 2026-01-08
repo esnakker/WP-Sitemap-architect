@@ -385,7 +385,7 @@ export default function App() {
               <div className="space-y-6">
                 <ProjectManager
                   onProjectSelect={loadProjectFromDatabase}
-                  onNewProject={() => {}}
+                  onNewProject={() => setHasCrawled(true)}
                   refreshTrigger={refreshProjects}
                 />
                 <div className="relative">
