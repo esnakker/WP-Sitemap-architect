@@ -1,0 +1,28 @@
+{
+  "name": "wp-structure-architect",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "@google/genai": "0.0.12",
+    "lucide-react": "0.292.0",
+    "reactflow": "11.11.4",
+    "dagre": "0.8.5",
+    "react-arborist": "3.4.0",
+    "react-virtualized-auto-sizer": "1.0.24",
+    "clsx": "2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
