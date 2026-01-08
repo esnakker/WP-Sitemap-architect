@@ -134,6 +134,29 @@ export const flattenTree = (nodes: TreeNode[], parentId: string | null = null): 
 };
 
 /**
+ * Finds the current position (parentId and menuOrder) of a node in the tree.
+ */
+export const getNodePosition = (nodes: TreeNode[], nodeId: string): { parentId: string | null; menuOrder: number } | null => {
+    let result: { parentId: string | null; menuOrder: number } | null = null;
+
+    const findNode = (currentNodes: TreeNode[], parentId: string | null = null): boolean => {
+        for (let i = 0; i < currentNodes.length; i++) {
+            if (currentNodes[i].id === nodeId) {
+                result = { parentId, menuOrder: i };
+                return true;
+            }
+            if (currentNodes[i].children && findNode(currentNodes[i].children!, currentNodes[i].id)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    findNode(nodes);
+    return result;
+};
+
+/**
  * Handles the logic for moving a node within the tree structure.
  * Returns a new tree array.
  */
@@ -160,7 +183,7 @@ export const moveTreeNode = (data: TreeNode[], dragIds: string[], parentId: stri
 
     removeNode(newData);
 
-    if (!draggedNode) return data; 
+    if (!draggedNode) return data;
 
     // Update internal parentId for consistency (though nesting defines it visually)
     (draggedNode as any).parentId = parentId;

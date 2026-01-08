@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Tree, NodeRendererProps } from 'react-arborist';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { SitePage, ContentType } from '../types';
-import { TreeNode, moveTreeNode } from '../utils/treeUtils';
+import { TreeNode, moveTreeNode, getNodePosition } from '../utils/treeUtils';
+import { supabaseService } from '../services/supabaseService';
 import { FileText, Newspaper, Box, Ghost, ChevronRight, ChevronDown, GripVertical, AlertCircle, MessageSquareText } from 'lucide-react';
 import { getTypeColor } from '../utils/graphUtils';
 import clsx from 'clsx';
@@ -13,6 +14,7 @@ interface Props {
   onSelectNode: (node: SitePage) => void;
   onDataChange?: (newData: TreeNode[]) => void;
   label: string;
+  projectId?: string;
 }
 
 const NodeIcon = ({ type }: { type: ContentType }) => {
@@ -94,15 +96,36 @@ const CustomNode = ({ node, style, dragHandle, tree }: NodeRendererProps<TreeNod
 // Workaround for AutoSizer type incompatibility in strict TS environments
 const Sizer = AutoSizer as any;
 
-const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDataChange, label }) => {
-  
+const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDataChange, label, projectId }) => {
+
   // Handle Tree Updates (Drag & Drop)
-  const handleMove = ({ dragIds, parentId, index }: any) => {
+  const handleMove = async ({ dragIds, parentId, index }: any) => {
     if (readOnly || !onDataChange) return;
-    
+
+    const dragId = dragIds[0];
+    const oldPosition = getNodePosition(data, dragId);
+
+    if (!oldPosition) return;
+
     // Calculate new state
     const newData = moveTreeNode(data, dragIds, parentId, index);
-    
+
+    // Save history if projectId is available
+    if (projectId && oldPosition.parentId !== parentId) {
+      try {
+        await supabaseService.savePageHistory(
+          projectId,
+          dragId,
+          oldPosition.parentId,
+          parentId,
+          oldPosition.menuOrder,
+          index
+        );
+      } catch (err) {
+        console.error('Failed to save page history:', err);
+      }
+    }
+
     // Propagate change
     onDataChange(newData);
   };

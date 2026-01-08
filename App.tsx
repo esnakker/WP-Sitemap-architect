@@ -47,24 +47,44 @@ const FlowEditor = ({
   onConnect?: (connection: Connection) => void,
   onNodeClick?: (event: React.MouseEvent, node: Node) => void,
   label: string
-}) => (
-  <div className="w-full h-full relative">
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      onNodeClick={onNodeClick}
-      nodeTypes={nodeTypes}
-      fitView
-      attributionPosition="bottom-left"
-    >
-      <Background color="#f1f5f9" gap={16} />
-      <Controls />
-    </ReactFlow>
-  </div>
-);
+}) => {
+  const handleNodesChange: OnNodesChange = (changes) => {
+    if (onNodesChange) {
+      onNodesChange(changes);
+    }
+  };
+
+  const handleEdgesChange: OnEdgesChange = (changes) => {
+    if (onEdgesChange) {
+      onEdgesChange(changes);
+    }
+  };
+
+  const handleConnect = (connection: Connection) => {
+    if (onConnect) {
+      onConnect(connection);
+    }
+  };
+
+  return (
+    <div className="w-full h-full relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange ? handleNodesChange : undefined}
+        onEdgesChange={onEdgesChange ? handleEdgesChange : undefined}
+        onConnect={onConnect ? handleConnect : undefined}
+        onNodeClick={onNodeClick}
+        nodeTypes={nodeTypes}
+        fitView
+        attributionPosition="bottom-left"
+      >
+        <Background color="#f1f5f9" gap={16} />
+        <Controls />
+      </ReactFlow>
+    </div>
+  );
+};
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -489,9 +509,6 @@ export default function App() {
             <FlowEditor
               nodes={graphData.nodes}
               edges={graphData.edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
               onNodeClick={handleNodeClick}
               label="Struktur Graph"
             />
@@ -504,6 +521,7 @@ export default function App() {
               onSelectNode={setSelectedNodeData}
               onDataChange={handleTreeChange}
               label="Struktur Baum"
+              projectId={currentProjectId || undefined}
             />
           </div>
         )}
@@ -513,6 +531,8 @@ export default function App() {
             node={selectedNodeData}
             onClose={() => setSelectedNodeData(null)}
             onUpdate={handleNodeUpdate}
+            allPages={pages}
+            projectId={currentProjectId || undefined}
           />
         )}
       </main>

@@ -37,6 +37,18 @@ export interface PageRecord {
   updated_at: string;
 }
 
+export interface PageHistory {
+  id: string;
+  project_id: string;
+  page_id: string;
+  old_parent_id: string | null;
+  new_parent_id: string | null;
+  old_menu_order: number;
+  new_menu_order: number;
+  changed_by: string;
+  created_at: string;
+}
+
 export const supabaseService = {
   async createProject(url: string, title: string, description?: string): Promise<Project> {
     const { data, error } = await supabase
@@ -166,6 +178,69 @@ export const supabaseService = {
       .from('pages')
       .update({
         thumbnail_url: thumbnailUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId)
+      .eq('page_id', pageId);
+
+    if (error) throw error;
+  },
+
+  async savePageHistory(
+    projectId: string,
+    pageId: string,
+    oldParentId: string | null,
+    newParentId: string | null,
+    oldMenuOrder: number,
+    newMenuOrder: number
+  ): Promise<PageHistory> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('page_history')
+      .insert({
+        project_id: projectId,
+        page_id: pageId,
+        old_parent_id: oldParentId,
+        new_parent_id: newParentId,
+        old_menu_order: oldMenuOrder,
+        new_menu_order: newMenuOrder,
+        changed_by: user.id,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to save page history');
+    return data;
+  },
+
+  async getLatestPageHistory(pageId: string, projectId: string): Promise<PageHistory | null> {
+    const { data, error } = await supabase
+      .from('page_history')
+      .select('*')
+      .eq('page_id', pageId)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updatePagePosition(
+    projectId: string,
+    pageId: string,
+    parentId: string | null,
+    menuOrder: number
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('pages')
+      .update({
+        parent_id: parentId,
+        menu_order: menuOrder,
         updated_at: new Date().toISOString(),
       })
       .eq('project_id', projectId)
