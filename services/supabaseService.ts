@@ -143,7 +143,7 @@ export const supabaseService = {
   async getPages(projectId: string): Promise<SitePage[]> {
     const { data, error } = await supabase
       .from('pages')
-      .select('*')
+      .select('page_id, title, type, parent_id, url, summary, menu_order, status, notes')
       .eq('project_id', projectId)
       .order('menu_order', { ascending: true });
 
@@ -156,11 +156,23 @@ export const supabaseService = {
       parentId: record.parent_id,
       url: record.url,
       summary: record.summary,
-      thumbnailUrl: record.thumbnail_url,
+      thumbnailUrl: '',
       menuOrder: record.menu_order,
       status: record.status as any,
       notes: record.notes || undefined,
     }));
+  },
+
+  async getPageThumbnail(projectId: string, pageId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('pages')
+      .select('thumbnail_url')
+      .eq('project_id', projectId)
+      .eq('page_id', pageId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.thumbnail_url || null;
   },
 
   async updatePageStatus(projectId: string, pageId: string, status: string, notes?: string): Promise<void> {

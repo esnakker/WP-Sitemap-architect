@@ -356,8 +356,29 @@ export default function App() {
     }
   };
 
-  const handleNodeClick = (e: React.MouseEvent, node: Node) => {
-    setSelectedNodeData(node.data as SitePage);
+  const loadThumbnailForPage = async (pageData: SitePage) => {
+    if (currentProjectId && !pageData.thumbnailUrl) {
+      const thumbnail = await supabaseService.getPageThumbnail(currentProjectId, pageData.id);
+      if (thumbnail) {
+        setSelectedNodeData(prev => prev?.id === pageData.id ? { ...prev, thumbnailUrl: thumbnail } : prev);
+        setPages(prevPages => prevPages.map(p =>
+          p.id === pageData.id ? { ...p, thumbnailUrl: thumbnail } : p
+        ));
+      }
+    }
+  };
+
+  const handleNodeClick = async (e: React.MouseEvent, node: Node) => {
+    const pageData = node.data as SitePage;
+    setSelectedNodeData(pageData);
+    loadThumbnailForPage(pageData);
+  };
+
+  const handleTreeNodeSelect = (pageData: SitePage | null) => {
+    setSelectedNodeData(pageData);
+    if (pageData) {
+      loadThumbnailForPage(pageData);
+    }
   };
 
   const handleBackToProjects = () => {
@@ -566,7 +587,7 @@ export default function App() {
             <SiteTree
               data={treeData}
               readOnly={false}
-              onSelectNode={setSelectedNodeData}
+              onSelectNode={handleTreeNodeSelect}
               onDataChange={handleTreeChange}
               label="Struktur Baum"
               projectId={currentProjectId || undefined}
