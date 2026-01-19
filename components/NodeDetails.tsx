@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { SitePage, PageStatus } from '../types';
+import { SitePage, PageStatus, ProjectOwner, Actor } from '../types';
 import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2 } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
+import { CommentsSection } from './CommentsSection';
 import clsx from 'clsx';
 
 interface Props {
@@ -10,11 +11,14 @@ interface Props {
   onUpdate: (id: string, updates: Partial<SitePage>) => void;
   allPages?: SitePage[];
   projectId?: string;
+  actor?: Actor;
+  shareToken?: string;
 }
 
-const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], projectId }) => {
+const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], projectId, actor, shareToken }) => {
   const [isUndoing, setIsUndoing] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
+  const [owners, setOwners] = useState<ProjectOwner[]>([]);
 
   useEffect(() => {
     if (!node || !projectId) {
@@ -34,6 +38,21 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
 
     checkHistory();
   }, [node, projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    const loadOwners = async () => {
+      try {
+        const data = await supabaseService.getProjectOwners(projectId);
+        setOwners(data);
+      } catch (err) {
+        console.error('Failed to load owners:', err);
+      }
+    };
+
+    loadOwners();
+  }, [projectId]);
 
   if (!node) return null;
 
@@ -166,16 +185,52 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
             </div>
         </div>
 
-        {/* Notes */}
+        {/* Owner */}
         <div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Notizen</span>
-            <textarea 
-                value={node.notes || ''}
-                onChange={(e) => onUpdate(node.id, { notes: e.target.value })}
-                placeholder="Fügen Sie hier Kommentare oder Anmerkungen zur Neustrukturierung hinzu..."
-                className="w-full h-32 p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white"
-            />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Business Unit</span>
+            <select
+                value={node.ownerId || ''}
+                onChange={(e) => onUpdate(node.id, { ownerId: e.target.value || undefined })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+                <option value="">No owner</option>
+                {owners.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                        {owner.name}
+                    </option>
+                ))}
+            </select>
         </div>
+
+        {/* Relevance */}
+        <div>
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Relevance</span>
+                <span className="text-sm font-bold text-blue-600">{node.relevance || 3}</span>
+            </div>
+            <input
+                type="range"
+                min="1"
+                max="5"
+                value={node.relevance || 3}
+                onChange={(e) => onUpdate(node.id, { relevance: parseInt(e.target.value) })}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+            />
+            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                <span>Low</span>
+                <span>High</span>
+            </div>
+        </div>
+
+        {/* Comments */}
+        {projectId && actor && (
+            <CommentsSection
+                projectId={projectId}
+                pageId={node.id}
+                actor={actor}
+                shareToken={shareToken}
+            />
+        )}
 
         <div className="pt-2">
             <a 

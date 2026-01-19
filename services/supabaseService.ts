@@ -1,5 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
-import { SitePage } from '../types';
+import {
+  SitePage,
+  ProjectOwner,
+  PageComment,
+  ActivityLog,
+  ActivityActionType,
+  ProjectSnapshot,
+  ProjectShareLink,
+  Actor
+} from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -160,6 +169,8 @@ export const supabaseService = {
       menuOrder: record.menu_order,
       status: record.status as any,
       notes: record.notes || undefined,
+      ownerId: record.owner_id || undefined,
+      relevance: record.relevance || 3,
     }));
   },
 
@@ -263,5 +274,324 @@ export const supabaseService = {
       .eq('page_id', pageId);
 
     if (error) throw error;
+  },
+
+  async getProjectOwners(projectId: string): Promise<ProjectOwner[]> {
+    const { data, error } = await supabase
+      .from('project_owners')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async createProjectOwner(projectId: string, name: string, color?: string): Promise<ProjectOwner> {
+    const { data: existingOwners } = await supabase
+      .from('project_owners')
+      .select('sort_order')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+
+    const nextSortOrder = existingOwners && existingOwners.length > 0
+      ? existingOwners[0].sort_order + 1
+      : 0;
+
+    const { data, error } = await supabase
+      .from('project_owners')
+      .insert({
+        project_id: projectId,
+        name,
+        color,
+        sort_order: nextSortOrder,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create project owner');
+    return data;
+  },
+
+  async updateProjectOwner(ownerId: string, updates: Partial<ProjectOwner>): Promise<ProjectOwner> {
+    const { data, error } = await supabase
+      .from('project_owners')
+      .update(updates)
+      .eq('id', ownerId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to update project owner');
+    return data;
+  },
+
+  async deleteProjectOwner(ownerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('project_owners')
+      .delete()
+      .eq('id', ownerId);
+
+    if (error) throw error;
+  },
+
+  async updatePageOwner(projectId: string, pageId: string, ownerId: string | null): Promise<void> {
+    const { error } = await supabase
+      .from('pages')
+      .update({
+        owner_id: ownerId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId)
+      .eq('page_id', pageId);
+
+    if (error) throw error;
+  },
+
+  async updatePageRelevance(projectId: string, pageId: string, relevance: number): Promise<void> {
+    const { error } = await supabase
+      .from('pages')
+      .update({
+        relevance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId)
+      .eq('page_id', pageId);
+
+    if (error) throw error;
+  },
+
+  async getComments(projectId: string, pageId: string): Promise<PageComment[]> {
+    const { data, error } = await supabase
+      .from('page_comments')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('page_id', pageId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async addComment(
+    projectId: string,
+    pageId: string,
+    actor: Actor,
+    body: string
+  ): Promise<PageComment> {
+    const { data, error } = await supabase
+      .from('page_comments')
+      .insert({
+        project_id: projectId,
+        page_id: pageId,
+        author_user_id: actor.user_id,
+        author_name: actor.name,
+        author_is_guest: actor.is_guest,
+        body,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to add comment');
+    return data;
+  },
+
+  async getActivityFeed(projectId: string, limit: number = 50): Promise<ActivityLog[]> {
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async logActivity(
+    projectId: string,
+    actionType: ActivityActionType,
+    actor: Actor,
+    pageId?: string,
+    payload?: Record<string, any>
+  ): Promise<ActivityLog> {
+    const { data, error } = await supabase
+      .from('activity_log')
+      .insert({
+        project_id: projectId,
+        actor_user_id: actor.user_id,
+        actor_name: actor.name,
+        actor_is_guest: actor.is_guest,
+        action_type: actionType,
+        page_id: pageId,
+        payload: payload || {},
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to log activity');
+    return data;
+  },
+
+  async createSnapshot(
+    projectId: string,
+    label: string,
+    actor: Actor,
+    state: any,
+    description?: string
+  ): Promise<ProjectSnapshot> {
+    const { data, error } = await supabase
+      .from('project_snapshots')
+      .insert({
+        project_id: projectId,
+        label,
+        description,
+        created_by_user_id: actor.user_id,
+        created_by_name: actor.name,
+        created_by_is_guest: actor.is_guest,
+        state,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create snapshot');
+    return data;
+  },
+
+  async getSnapshots(projectId: string): Promise<ProjectSnapshot[]> {
+    const { data, error } = await supabase
+      .from('project_snapshots')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    const { error } = await supabase
+      .from('project_snapshots')
+      .delete()
+      .eq('id', snapshotId);
+
+    if (error) throw error;
+  },
+
+  async createShareLink(projectId: string): Promise<ProjectShareLink> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    const { data, error } = await supabase
+      .from('project_share_links')
+      .insert({
+        project_id: projectId,
+        token,
+        role: 'editor',
+        created_by_user_id: user.id,
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create share link');
+    return data;
+  },
+
+  async getShareLinks(projectId: string): Promise<ProjectShareLink[]> {
+    const { data, error } = await supabase
+      .from('project_share_links')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async revokeShareLink(linkId: string): Promise<void> {
+    const { error } = await supabase
+      .from('project_share_links')
+      .update({ is_active: false })
+      .eq('id', linkId);
+
+    if (error) throw error;
+  },
+
+  async validateShareToken(token: string): Promise<{
+    project_id: string;
+    project_title: string;
+    project_url: string;
+    role: string;
+    is_valid: boolean;
+  } | null> {
+    const { data, error } = await supabase
+      .rpc('get_shared_project', { share_token: token })
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async addGuestComment(token: string, guestName: string, pageId: string, body: string): Promise<string> {
+    const { data, error } = await supabase
+      .rpc('add_guest_comment', {
+        share_token: token,
+        guest_name: guestName,
+        p_page_id: pageId,
+        comment_body: body,
+      });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async logGuestActivity(
+    token: string,
+    guestName: string,
+    actionType: string,
+    pageId: string,
+    payload: Record<string, any>
+  ): Promise<string> {
+    const { data, error } = await supabase
+      .rpc('log_guest_activity', {
+        share_token: token,
+        guest_name: guestName,
+        p_action_type: actionType,
+        p_page_id: pageId,
+        p_payload: payload,
+      });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updatePageAsGuest(
+    token: string,
+    guestName: string,
+    projectId: string,
+    pageId: string,
+    updates: Record<string, any>
+  ): Promise<boolean> {
+    const { data, error } = await supabase
+      .rpc('update_page_as_guest', {
+        share_token: token,
+        guest_name: guestName,
+        p_project_id: projectId,
+        p_page_id: pageId,
+        p_updates: updates,
+      });
+
+    if (error) throw error;
+    return data;
   },
 };

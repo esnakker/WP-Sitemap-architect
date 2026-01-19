@@ -17,9 +17,10 @@ import JSZip from 'jszip';
 import { buildGraphFromPages } from './utils/graphUtils';
 import { buildTreeFromPages, flattenTree, TreeNode, updateTreeNodesImage, updateNodeDataInTree } from './utils/treeUtils';
 import { exportUtils } from './utils/exportUtils';
-import { SitePage, CrawlerConfig, GraphData } from './types';
+import { SitePage, CrawlerConfig, GraphData, Actor } from './types';
 import { analyzeSiteStructure } from './services/geminiService';
 import { supabase, supabaseService } from './services/supabaseService';
+import { sessionUtils } from './utils/session';
 import SiteCrawler from './components/SiteCrawler';
 import CustomNode from './components/CustomNode';
 import NodeDetails from './components/NodeDetails';
@@ -27,7 +28,9 @@ import SiteTree from './components/SiteTree';
 import { Auth, LogoutButton } from './components/Auth';
 import { ProjectManager } from './components/ProjectManager';
 import { ProjectForm } from './components/ProjectForm';
-import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft, Download } from 'lucide-react';
+import { ProjectToolbar } from './components/ProjectToolbar';
+import { ActivityFeed } from './components/ActivityFeed';
+import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft, Download, Activity } from 'lucide-react';
 
 const nodeTypes = {
   custom: CustomNode,
@@ -111,6 +114,8 @@ export default function App() {
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [selectedNodeData, setSelectedNodeData] = useState<SitePage | null>(null);
+  const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const [actor, setActor] = useState<Actor | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,7 +123,15 @@ export default function App() {
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user || null);
+        const currentUser = session?.user || null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          setActor(sessionUtils.createActorFromUser(
+            currentUser.id,
+            currentUser.email || 'User'
+          ));
+        }
       } catch (err) {
         console.error('Auth check failed:', err);
       } finally {
@@ -208,11 +221,42 @@ export default function App() {
   };
 
   const handleNodeUpdate = async (id: string, updates: Partial<SitePage>) => {
+    const oldPage = pages.find(p => p.id === id);
     const updatedPages = pages.map(p => p.id === id ? { ...p, ...updates } : p);
     setPages(updatedPages);
 
     const updatedTree = updateNodeDataInTree(treeData, id, updates);
     setTreeData(updatedTree);
+
+    if (currentProjectId && oldPage && actor) {
+      try {
+        if ('status' in updates && updates.status !== oldPage.status) {
+          await supabaseService.updatePageStatus(currentProjectId, id, updates.status!, updates.notes);
+          await supabaseService.logActivity(currentProjectId, 'status_changed', actor, id, {
+            oldStatus: oldPage.status,
+            newStatus: updates.status,
+          });
+        }
+
+        if ('ownerId' in updates && updates.ownerId !== oldPage.ownerId) {
+          await supabaseService.updatePageOwner(currentProjectId, id, updates.ownerId || null);
+          await supabaseService.logActivity(currentProjectId, 'owner_changed', actor, id, {
+            oldOwner: oldPage.ownerId,
+            newOwner: updates.ownerId,
+          });
+        }
+
+        if ('relevance' in updates && updates.relevance !== oldPage.relevance) {
+          await supabaseService.updatePageRelevance(currentProjectId, id, updates.relevance!);
+          await supabaseService.logActivity(currentProjectId, 'relevance_changed', actor, id, {
+            oldRelevance: oldPage.relevance,
+            newRelevance: updates.relevance,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to log activity:', err);
+      }
+    }
 
     if (selectedNodeData && selectedNodeData.id === id) {
       setSelectedNodeData({ ...selectedNodeData, ...updates });
@@ -546,6 +590,21 @@ export default function App() {
         </div>
 
         <div className="w-auto flex justify-end gap-2">
+          {currentProjectId && <ProjectToolbar projectId={currentProjectId} />}
+
+          <button
+            onClick={() => setShowActivityFeed(!showActivityFeed)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-medium transition-all ${
+              showActivityFeed
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+            title="Show activity feed"
+          >
+            <Activity size={14} />
+            Activity
+          </button>
+
           <button
             onClick={handleExportProject}
             disabled={isExporting}
@@ -628,6 +687,15 @@ export default function App() {
             onUpdate={handleNodeUpdate}
             allPages={pages}
             projectId={currentProjectId || undefined}
+            actor={actor || undefined}
+          />
+        )}
+
+        {showActivityFeed && currentProjectId && (
+          <ActivityFeed
+            projectId={currentProjectId}
+            pages={pages}
+            onClose={() => setShowActivityFeed(false)}
           />
         )}
       </main>
