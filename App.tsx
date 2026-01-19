@@ -12,7 +12,6 @@ import ReactFlow, {
   addEdge,
   ReactFlowProvider
 } from 'reactflow';
-import JSZip from 'jszip';
 
 import { buildGraphFromPages } from './utils/graphUtils';
 import { buildTreeFromPages, flattenTree, TreeNode, updateTreeNodesImage, updateNodeDataInTree } from './utils/treeUtils';
@@ -30,7 +29,8 @@ import { ProjectManager } from './components/ProjectManager';
 import { ProjectForm } from './components/ProjectForm';
 import { ProjectToolbar } from './components/ProjectToolbar';
 import { ActivityFeed } from './components/ActivityFeed';
-import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft, Download, Activity } from 'lucide-react';
+import { FilterPanel } from './components/FilterPanel';
+import { Layout, Network, ListTree, Filter, Loader2, ArrowLeft, Download, Activity } from 'lucide-react';
 
 const nodeTypes = {
   custom: CustomNode,
@@ -104,12 +104,17 @@ export default function App() {
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlStatus, setCrawlStatus] = useState<string>('');
   const [hasCrawled, setHasCrawled] = useState(false);
-  const [isImportingImages, setIsImportingImages] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const [visualMode, setVisualMode] = useState<'flow' | 'tree'>('flow');
-  const [hideEmptyRoots, setHideEmptyRoots] = useState(false);
+
+  const [filters, setFilters] = useState({
+    statuses: [] as PageStatus[],
+    ownerIds: [] as string[],
+    hideFiltered: false
+  });
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -117,8 +122,6 @@ export default function App() {
   const [showActivityFeed, setShowActivityFeed] = useState(false);
   const [actor, setActor] = useState<Actor | null>(null);
   const [owners, setOwners] = useState<ProjectOwner[]>([]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -281,99 +284,36 @@ export default function App() {
     }
   };
 
-  const handleZipUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const isPageFiltered = (page: SitePage): boolean => {
+    const hasFilters = filters.statuses.length > 0 || filters.ownerIds.length > 0;
+    if (!hasFilters) return false;
 
-    setIsImportingImages(true);
-    try {
-      const zip = new JSZip();
-      const content = await zip.loadAsync(file);
-      const imageMap = new Map<string, string>();
+    let matches = true;
 
-      const idPattern = /^(\d+)\.(png|jpg|jpeg|gif|webp)$/i;
-      const promises: Promise<void>[] = [];
-
-      content.forEach((relativePath, zipEntry) => {
-        if (zipEntry.dir) return;
-
-        const match = zipEntry.name.match(idPattern);
-        if (match) {
-          const id = match[1];
-          const promise = zipEntry.async('blob').then(async (blob) => {
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>((resolve) => {
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            imageMap.set(id, dataUrl);
-          });
-          promises.push(promise);
-        }
-      });
-
-      await Promise.all(promises);
-
-      if (imageMap.size === 0) {
-        alert("Keine passenden Bilder gefunden. Dateinamen müssen die Page-ID enthalten (z.B. '1353.png').");
-      } else {
-        const updatedPages = pages.map(p => {
-          if (imageMap.has(p.id)) {
-            return { ...p, thumbnailUrl: imageMap.get(p.id)! };
-          }
-          return p;
-        });
-        setPages(updatedPages);
-
-        const updatedTree = updateTreeNodesImage(treeData, imageMap);
-        setTreeData(updatedTree);
-
-        if (selectedNodeData && imageMap.has(selectedNodeData.id)) {
-          setSelectedNodeData(prev => prev ? ({ ...prev, thumbnailUrl: imageMap.get(prev.id)! }) : null);
-        }
-
-        alert(`${imageMap.size} Screenshots erfolgreich importiert!`);
-
-        if (currentProjectId) {
-          setIsSaving(true);
-          try {
-            for (const [id, url] of imageMap) {
-              await supabaseService.updatePageThumbnail(currentProjectId, id, url);
-            }
-          } finally {
-            setTimeout(() => setIsSaving(false), 500);
-          }
-        }
-      }
-
-    } catch (e) {
-      console.error("ZIP Error", e);
-      alert("Fehler beim Verarbeiten der ZIP-Datei.");
-    } finally {
-      setIsImportingImages(false);
-      if (event.target) event.target.value = '';
+    if (filters.statuses.length > 0) {
+      matches = matches && filters.statuses.includes(page.status || 'neutral');
     }
+
+    if (filters.ownerIds.length > 0) {
+      matches = matches && (page.ownerId ? filters.ownerIds.includes(page.ownerId) : false);
+    }
+
+    return !matches;
+  };
+
+  const applyFiltersToPages = (pages: SitePage[]): SitePage[] => {
+    if (filters.hideFiltered) {
+      return pages.filter(page => !isPageFiltered(page));
+    }
+    return pages;
   };
 
   useEffect(() => {
     if (pages.length === 0) return;
 
-    let filteredPages = pages;
-
-    if (hideEmptyRoots) {
-      const parentIds = new Set(pages.map(p => p.parentId).filter(Boolean));
-      filteredPages = pages.filter(p => {
-        const hasParent = !!p.parentId;
-        const isParent = parentIds.has(p.id);
-        if (!hasParent && !isParent) {
-          return false;
-        }
-        return true;
-      });
-    }
-
+    const filteredPages = applyFiltersToPages(pages);
     setGraphData(buildGraphFromPages(filteredPages));
-  }, [pages, hideEmptyRoots]);
+  }, [pages, filters]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setGraphData((nds) => ({ ...nds, nodes: applyNodeChanges(changes, nds.nodes) })),
@@ -530,14 +470,6 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden">
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".zip"
-        className="hidden"
-        onChange={handleZipUpload}
-      />
-
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-20 shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           <button
@@ -623,16 +555,6 @@ export default function App() {
             Export
           </button>
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImportingImages}
-            className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-medium transition-all"
-            title="Lade eine ZIP-Datei mit Screenshots hoch"
-          >
-            {isImportingImages ? <Loader2 size={14} className="animate-spin" /> : <ImageDown size={14} />}
-            Screenshots
-          </button>
-
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-500">
             {isSaving ? (
               <>
@@ -647,19 +569,22 @@ export default function App() {
             )}
           </div>
 
-          {visualMode === 'flow' && (
-            <button
-              onClick={() => setHideEmptyRoots(!hideEmptyRoots)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-medium transition-all ${
-                hideEmptyRoots
-                  ? 'bg-blue-50 border-blue-200 text-blue-700'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Filter size={14} />
-              {hideEmptyRoots ? 'Leere Roots ausgeblendet' : 'Filter'}
-            </button>
-          )}
+          <button
+            onClick={() => setShowFilterPanel(!showFilterPanel)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-medium transition-all ${
+              showFilterPanel || (filters.statuses.length > 0 || filters.ownerIds.length > 0)
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Filter size={14} />
+            Filter
+            {(filters.statuses.length > 0 || filters.ownerIds.length > 0) && (
+              <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                {filters.statuses.length + filters.ownerIds.length}
+              </span>
+            )}
+          </button>
 
           <LogoutButton />
         </div>
@@ -685,6 +610,8 @@ export default function App() {
               label="Struktur Baum"
               projectId={currentProjectId || undefined}
               owners={owners}
+              isPageFiltered={isPageFiltered}
+              hideFiltered={filters.hideFiltered}
             />
           </div>
         )}
@@ -697,6 +624,15 @@ export default function App() {
             allPages={pages}
             projectId={currentProjectId || undefined}
             actor={actor || undefined}
+          />
+        )}
+
+        {showFilterPanel && (
+          <FilterPanel
+            filters={filters}
+            owners={owners}
+            onFiltersChange={setFilters}
+            onClose={() => setShowFilterPanel(false)}
           />
         )}
 

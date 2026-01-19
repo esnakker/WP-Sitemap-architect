@@ -16,6 +16,8 @@ interface Props {
   label: string;
   projectId?: string;
   owners?: ProjectOwner[];
+  isPageFiltered?: (page: SitePage) => boolean;
+  hideFiltered?: boolean;
 }
 
 const NodeIcon = ({ type }: { type: ContentType }) => {
@@ -27,9 +29,20 @@ const NodeIcon = ({ type }: { type: ContentType }) => {
   }
 };
 
-const CustomNode = ({ node, style, dragHandle, tree, owners }: NodeRendererProps<TreeNode> & { owners?: ProjectOwner[] }) => {
+const CustomNode = ({
+  node,
+  style,
+  dragHandle,
+  tree,
+  owners,
+  isPageFiltered
+}: NodeRendererProps<TreeNode> & {
+  owners?: ProjectOwner[];
+  isPageFiltered?: (page: SitePage) => boolean;
+}) => {
   const isGhost = node.data.type === ContentType.GHOST || node.data.status === 'ghost';
   const hasNotes = !!node.data.notes && node.data.notes.trim().length > 0;
+  const isFiltered = isPageFiltered ? isPageFiltered(node.data) : false;
 
   // Explicitly check for children existence to determine if arrow should be shown
   const childCount = node.data.children ? node.data.children.length : 0;
@@ -58,7 +71,8 @@ const CustomNode = ({ node, style, dragHandle, tree, owners }: NodeRendererProps
         "flex items-center gap-2 px-2 py-1 mx-2 my-0.5 rounded cursor-pointer transition-colors outline-none group border",
         statusStyle || "border-transparent",
         node.isSelected ? "!bg-blue-50 !border-blue-200" : (!statusStyle && "hover:bg-slate-100"),
-        isGhost ? "opacity-70" : ""
+        isGhost ? "opacity-70" : "",
+        isFiltered ? "opacity-30 grayscale" : ""
       )}
     >
       <div
@@ -114,7 +128,30 @@ const CustomNode = ({ node, style, dragHandle, tree, owners }: NodeRendererProps
 // Workaround for AutoSizer type incompatibility in strict TS environments
 const Sizer = AutoSizer as any;
 
-const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDataChange, label, projectId, owners }) => {
+const SiteTree: React.FC<Props> = ({
+  data,
+  readOnly = false,
+  onSelectNode,
+  onDataChange,
+  label,
+  projectId,
+  owners,
+  isPageFiltered,
+  hideFiltered = false
+}) => {
+  // Filter tree data if hideFiltered is true
+  const filterTreeData = (nodes: TreeNode[]): TreeNode[] => {
+    if (!hideFiltered || !isPageFiltered) return nodes;
+
+    return nodes
+      .filter(node => !isPageFiltered(node.data))
+      .map(node => ({
+        ...node,
+        children: node.children ? filterTreeData(node.children) : undefined
+      }));
+  };
+
+  const displayData = filterTreeData(data);
 
   // Handle Tree Updates (Drag & Drop)
   const handleMove = async ({ dragIds, parentId, index }: any) => {
@@ -162,7 +199,7 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
             {label}
          </div>
          <div className="text-xs text-slate-400">
-            {data.length} Root Items
+            {displayData.length} Root Items
          </div>
       </div>
 
@@ -171,7 +208,7 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
         <Sizer>
             {({ width, height }: { width: number; height: number }) => (
                 <Tree
-                    data={data}
+                    data={displayData}
                     width={width}
                     height={height}
                     rowHeight={36}
@@ -185,7 +222,7 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
                         }
                     }}
                 >
-                    {(props) => <CustomNode {...props} owners={owners} />}
+                    {(props) => <CustomNode {...props} owners={owners} isPageFiltered={isPageFiltered} />}
                 </Tree>
             )}
         </Sizer>
