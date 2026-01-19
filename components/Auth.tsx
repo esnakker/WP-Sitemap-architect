@@ -20,6 +20,11 @@ export const Auth: React.FC<AuthProps> = ({ onAuthStateChange }) => {
 
     try {
       if (isSignUp) {
+        const emailLower = email.toLowerCase();
+        if (!emailLower.endsWith('@fme.de') && !emailLower.endsWith('@fme-us.com')) {
+          throw new Error('Registration is restricted to @fme.de and @fme-us.com email addresses');
+        }
+
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setEmail('');
@@ -50,6 +55,15 @@ export const Auth: React.FC<AuthProps> = ({ onAuthStateChange }) => {
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">WP Structure Architect</h1>
           <p className="text-slate-500 mb-6">Site Crawler & Visualizer</p>
+
+          {isSignUp && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-900">
+                Registration is restricted to <strong>@fme.de</strong> and <strong>@fme-us.com</strong> email addresses.
+                All FME users can collaborate on all projects.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

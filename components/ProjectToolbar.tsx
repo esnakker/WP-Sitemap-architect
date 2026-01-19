@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Users, Camera, Share2, Undo2 } from 'lucide-react';
+import { Users, Camera, Undo2 } from 'lucide-react';
 import { OwnerManager } from './OwnerManager';
 import { SnapshotManager } from './SnapshotManager';
-import { ShareManager } from './ShareManager';
 
 interface ProjectToolbarProps {
   projectId: string;
@@ -17,7 +16,6 @@ export const ProjectToolbar: React.FC<ProjectToolbarProps> = ({
 }) => {
   const [showOwnerManager, setShowOwnerManager] = useState(false);
   const [showSnapshotManager, setShowSnapshotManager] = useState(false);
-  const [showShareManager, setShowShareManager] = useState(false);
 
   return (
     <>
@@ -49,15 +47,6 @@ export const ProjectToolbar: React.FC<ProjectToolbarProps> = ({
           <Camera size={14} />
           Snapshots
         </button>
-
-        <button
-          onClick={() => setShowShareManager(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-medium transition-all"
-          title="Share project"
-        >
-          <Share2 size={14} />
-          Share
-        </button>
       </div>
 
       {showOwnerManager && (
@@ -66,10 +55,6 @@ export const ProjectToolbar: React.FC<ProjectToolbarProps> = ({
 
       {showSnapshotManager && (
         <SnapshotManager projectId={projectId} onClose={() => setShowSnapshotManager(false)} />
-      )}
-
-      {showShareManager && (
-        <ShareManager projectId={projectId} onClose={() => setShowShareManager(false)} />
       )}
     </>
   );

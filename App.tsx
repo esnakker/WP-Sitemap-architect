@@ -495,6 +495,7 @@ export default function App() {
                   onProjectSelect={loadProjectFromDatabase}
                   onNewProject={() => setShowProjectForm(true)}
                   refreshTrigger={refreshProjects}
+                  currentUserId={user?.id}
                 />
                 {showProjectForm && (
                   <ProjectForm

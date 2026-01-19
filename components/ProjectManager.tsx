@@ -6,9 +6,10 @@ interface ProjectManagerProps {
   onProjectSelect: (projectId: string) => void;
   onNewProject: () => void;
   refreshTrigger?: number;
+  currentUserId?: string;
 }
 
-export const ProjectManager: React.FC<ProjectManagerProps> = ({ onProjectSelect, onNewProject, refreshTrigger }) => {
+export const ProjectManager: React.FC<ProjectManagerProps> = ({ onProjectSelect, onNewProject, refreshTrigger, currentUserId }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -109,19 +110,24 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ onProjectSelect,
                     {project.description && (
                       <p className="text-xs text-slate-400 mt-1">{project.description}</p>
                     )}
-                  </div>
-                  <button
-                    onClick={(e) => handleDelete(project.id, e)}
-                    disabled={deleting === project.id}
-                    className="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                    title="Projekt löschen"
-                  >
-                    {deleting === project.id ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={18} />
+                    {currentUserId && project.user_id !== currentUserId && (
+                      <p className="text-xs text-blue-600 mt-1">Shared project</p>
                     )}
-                  </button>
+                  </div>
+                  {currentUserId && project.user_id === currentUserId && (
+                    <button
+                      onClick={(e) => handleDelete(project.id, e)}
+                      disabled={deleting === project.id}
+                      className="ml-4 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      title="Projekt löschen (nur Ersteller)"
+                    >
+                      {deleting === project.id ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
