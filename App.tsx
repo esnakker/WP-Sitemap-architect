@@ -16,6 +16,7 @@ import JSZip from 'jszip';
 
 import { buildGraphFromPages } from './utils/graphUtils';
 import { buildTreeFromPages, flattenTree, TreeNode, updateTreeNodesImage, updateNodeDataInTree } from './utils/treeUtils';
+import { exportUtils } from './utils/exportUtils';
 import { SitePage, CrawlerConfig, GraphData } from './types';
 import { analyzeSiteStructure } from './services/geminiService';
 import { supabase, supabaseService } from './services/supabaseService';
@@ -26,7 +27,7 @@ import SiteTree from './components/SiteTree';
 import { Auth, LogoutButton } from './components/Auth';
 import { ProjectManager } from './components/ProjectManager';
 import { ProjectForm } from './components/ProjectForm';
-import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft } from 'lucide-react';
+import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft, Download } from 'lucide-react';
 
 const nodeTypes = {
   custom: CustomNode,
@@ -102,6 +103,7 @@ export default function App() {
   const [hasCrawled, setHasCrawled] = useState(false);
   const [isImportingImages, setIsImportingImages] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [visualMode, setVisualMode] = useState<'flow' | 'tree'>('flow');
   const [hideEmptyRoots, setHideEmptyRoots] = useState(false);
@@ -389,6 +391,20 @@ export default function App() {
     setSelectedNodeData(null);
   };
 
+  const handleExportProject = async () => {
+    if (!currentProjectId) return;
+
+    setIsExporting(true);
+    try {
+      await exportUtils.exportProject(currentProjectId);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Export fehlgeschlagen. Bitte versuche es erneut.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
@@ -530,6 +546,16 @@ export default function App() {
         </div>
 
         <div className="w-auto flex justify-end gap-2">
+          <button
+            onClick={handleExportProject}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-medium transition-all"
+            title="Projekt als JSON exportieren"
+          >
+            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Export
+          </button>
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isImportingImages}
