@@ -147,7 +147,7 @@ export default function App() {
         includePages: true,
         includePosts: false,
         includeCustom: false,
-      });
+      }, project.id);
 
       setRefreshProjects(r => r + 1);
     } catch (err: any) {
@@ -156,7 +156,7 @@ export default function App() {
     }
   };
 
-  const handleCrawl = async (config: CrawlerConfig) => {
+  const handleCrawl = async (config: CrawlerConfig, projectId?: string) => {
     setIsCrawling(true);
     setCrawlStatus('Starte Analyse...');
     try {
@@ -168,9 +168,10 @@ export default function App() {
       setTreeData(buildTreeFromPages(resultPages));
       setHasCrawled(true);
 
-      if (currentProjectId) {
+      const targetProjectId = projectId || currentProjectId;
+      if (targetProjectId) {
         setCrawlStatus('Speichere Seiten in Datenbank...');
-        await supabaseService.savePages(currentProjectId, resultPages);
+        await supabaseService.savePages(targetProjectId, resultPages);
         setCrawlStatus('Fertig!');
       }
     } catch (e) {
@@ -246,9 +247,13 @@ export default function App() {
         const match = zipEntry.name.match(idPattern);
         if (match) {
           const id = match[1];
-          const promise = zipEntry.async('blob').then(blob => {
-            const objectUrl = URL.createObjectURL(blob);
-            imageMap.set(id, objectUrl);
+          const promise = zipEntry.async('blob').then(async (blob) => {
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            imageMap.set(id, dataUrl);
           });
           promises.push(promise);
         }
