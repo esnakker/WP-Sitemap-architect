@@ -7,7 +7,17 @@ export enum ContentType {
   GHOST = 'ghost'
 }
 
-export type PageStatus = 'keep' | 'move' | 'delete' | 'neutral' | 'seo_review' | 'content_update';
+export type PageStatus =
+  | 'neutral'
+  | 'move'
+  | 'active'
+  | 'archived'
+  | 'redirect'
+  | 'new'
+  | 'remove'
+  | 'ghost'
+  | 'update'
+  | 'merge';
 
 export interface SitePage {
   id: string;
@@ -22,6 +32,8 @@ export interface SitePage {
   notes?: string;
   ownerId?: string;
   relevance?: number;
+  movedFromParentId?: string;
+  mergeTargetId?: string;
 }
 
 export interface GraphData {

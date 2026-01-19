@@ -152,7 +152,7 @@ export const supabaseService = {
   async getPages(projectId: string): Promise<SitePage[]> {
     const { data, error } = await supabase
       .from('pages')
-      .select('page_id, title, type, parent_id, url, summary, menu_order, status, notes')
+      .select('page_id, title, type, parent_id, url, summary, menu_order, status, notes, owner_id, relevance, moved_from_parent_id, merge_target_id')
       .eq('project_id', projectId)
       .order('menu_order', { ascending: true });
 
@@ -171,6 +171,8 @@ export const supabaseService = {
       notes: record.notes || undefined,
       ownerId: record.owner_id || undefined,
       relevance: record.relevance || 3,
+      movedFromParentId: record.moved_from_parent_id || undefined,
+      mergeTargetId: record.merge_target_id || undefined,
     }));
   },
 
@@ -186,12 +188,26 @@ export const supabaseService = {
     return data?.thumbnail_url || null;
   },
 
-  async updatePageStatus(projectId: string, pageId: string, status: string, notes?: string): Promise<void> {
+  async updatePageStatus(projectId: string, pageId: string, status: string, notes?: string, mergeTargetId?: string): Promise<void> {
     const { error } = await supabase
       .from('pages')
       .update({
         status,
         notes: notes || null,
+        merge_target_id: mergeTargetId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId)
+      .eq('page_id', pageId);
+
+    if (error) throw error;
+  },
+
+  async updatePageMovedFrom(projectId: string, pageId: string, movedFromParentId: string | null): Promise<void> {
+    const { error } = await supabase
+      .from('pages')
+      .update({
+        moved_from_parent_id: movedFromParentId,
         updated_at: new Date().toISOString(),
       })
       .eq('project_id', projectId)

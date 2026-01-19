@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SitePage, PageStatus, ProjectOwner, Actor } from '../types';
-import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, Ghost, FileEdit, Merge, Archive, ExternalLinkIcon, Plus } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
 import { CommentsSection } from './CommentsSection';
 import clsx from 'clsx';
@@ -58,6 +58,12 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
 
   const currentStatus = node.status || 'neutral';
   const parentNode = node.parentId ? allPages.find(p => p.id === node.parentId) : null;
+  const movedFromParent = node.movedFromParentId ? allPages.find(p => p.id === node.movedFromParentId) : null;
+
+  const handleStatusToggle = (status: PageStatus) => {
+    const newStatus = currentStatus === status ? 'neutral' : status;
+    onUpdate(node.id, { status: newStatus, mergeTargetId: newStatus === 'merge' ? node.mergeTargetId : undefined });
+  };
 
   const handleUndo = async () => {
     if (!projectId || isUndoing) return;
@@ -120,17 +126,27 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
         <div>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Übergeordnete Seite</span>
             {parentNode ? (
-                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
-                    <span className="text-sm text-slate-700 font-medium flex-1 truncate">{parentNode.title}</span>
-                    {hasHistory && (
-                        <button
-                            onClick={handleUndo}
-                            disabled={isUndoing}
-                            className="p-1.5 hover:bg-slate-200 rounded transition-colors disabled:opacity-50 flex-shrink-0"
-                            title="Zur vorherigen Position zurückgehen"
-                        >
-                            {isUndoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} className="text-slate-600" />}
-                        </button>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
+                        <span className="text-sm text-slate-700 font-medium flex-1 truncate">{parentNode.title}</span>
+                        {hasHistory && (
+                            <button
+                                onClick={handleUndo}
+                                disabled={isUndoing}
+                                className="p-1.5 hover:bg-slate-200 rounded transition-colors disabled:opacity-50 flex-shrink-0"
+                                title="Zur vorherigen Position zurückgehen"
+                            >
+                                {isUndoing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} className="text-slate-600" />}
+                            </button>
+                        )}
+                    </div>
+                    {movedFromParent && movedFromParent.id !== parentNode.id && (
+                        <div className="flex items-center gap-2 p-2 bg-amber-50 rounded border border-amber-200">
+                            <ArrowRightLeft size={12} className="text-amber-600 shrink-0" />
+                            <span className="text-xs text-amber-700">
+                                Verschoben von: <span className="font-medium">{movedFromParent.title}</span>
+                            </span>
+                        </div>
                     )}
                 </div>
             ) : (
@@ -140,49 +156,113 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
             )}
         </div>
 
-        {/* Status Ampel */}
+        {/* Status */}
         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Status</span>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2 mb-3">
                 <button
-                    onClick={() => onUpdate(node.id, { status: 'keep' })}
+                    onClick={() => handleStatusToggle('move')}
                     className={clsx(
-                        "flex-1 py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
-                        currentStatus === 'keep' 
-                            ? "bg-green-100 border-green-300 text-green-800 shadow-sm" 
-                            : "bg-white border-slate-200 text-slate-500 hover:bg-green-50 hover:border-green-200"
-                    )}
-                >
-                    <CheckCircle size={14} />
-                    Behalten
-                </button>
-                
-                <button
-                    onClick={() => onUpdate(node.id, { status: 'move' })}
-                    className={clsx(
-                        "flex-1 py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
-                        currentStatus === 'move' 
-                            ? "bg-orange-100 border-orange-300 text-orange-800 shadow-sm" 
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'move'
+                            ? "bg-orange-100 border-orange-300 text-orange-800 shadow-sm"
                             : "bg-white border-slate-200 text-slate-500 hover:bg-orange-50 hover:border-orange-200"
                     )}
+                    title="Page will be moved"
                 >
                     <ArrowRightLeft size={14} />
-                    Verschieben
+                    Move
                 </button>
 
                 <button
-                    onClick={() => onUpdate(node.id, { status: 'delete' })}
+                    onClick={() => handleStatusToggle('remove')}
                     className={clsx(
-                        "flex-1 py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
-                        currentStatus === 'delete' 
-                            ? "bg-red-100 border-red-300 text-red-800 shadow-sm" 
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'remove'
+                            ? "bg-red-100 border-red-300 text-red-800 shadow-sm"
                             : "bg-white border-slate-200 text-slate-500 hover:bg-red-50 hover:border-red-200"
                     )}
+                    title="Page will be removed"
                 >
                     <Trash2 size={14} />
-                    Entfernen
+                    Remove
+                </button>
+
+                <button
+                    onClick={() => handleStatusToggle('new')}
+                    className={clsx(
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'new'
+                            ? "bg-emerald-100 border-emerald-300 text-emerald-800 shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-emerald-50 hover:border-emerald-200"
+                    )}
+                    title="New page"
+                >
+                    <Plus size={14} />
+                    New
+                </button>
+
+                <button
+                    onClick={() => handleStatusToggle('ghost')}
+                    className={clsx(
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'ghost'
+                            ? "bg-slate-100 border-slate-300 text-slate-800 shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-200"
+                    )}
+                    title="Ghost node - planned page"
+                >
+                    <Ghost size={14} />
+                    Ghost
+                </button>
+
+                <button
+                    onClick={() => handleStatusToggle('update')}
+                    className={clsx(
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'update'
+                            ? "bg-yellow-100 border-yellow-300 text-yellow-800 shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-yellow-50 hover:border-yellow-200"
+                    )}
+                    title="Content needs to be rewritten"
+                >
+                    <FileEdit size={14} />
+                    Update
+                </button>
+
+                <button
+                    onClick={() => handleStatusToggle('merge')}
+                    className={clsx(
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'merge'
+                            ? "bg-amber-100 border-amber-300 text-amber-800 shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200"
+                    )}
+                    title="Merge with another page"
+                >
+                    <Merge size={14} />
+                    Merge
                 </button>
             </div>
+
+            {currentStatus === 'merge' && (
+                <div>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">Master Page (Merge Target)</label>
+                    <select
+                        value={node.mergeTargetId || ''}
+                        onChange={(e) => onUpdate(node.id, { mergeTargetId: e.target.value || undefined })}
+                        className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                    >
+                        <option value="">Select master page...</option>
+                        {allPages.filter(p => p.id !== node.id).map((page) => (
+                            <option key={page.id} value={page.id}>
+                                {page.title}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="text-[10px] text-slate-500 mt-1">Content will be merged into the selected master page</p>
+                </div>
+            )}
         </div>
 
         {/* Owner */}

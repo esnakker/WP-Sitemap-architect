@@ -17,7 +17,7 @@ import JSZip from 'jszip';
 import { buildGraphFromPages } from './utils/graphUtils';
 import { buildTreeFromPages, flattenTree, TreeNode, updateTreeNodesImage, updateNodeDataInTree } from './utils/treeUtils';
 import { exportUtils } from './utils/exportUtils';
-import { SitePage, CrawlerConfig, GraphData, Actor } from './types';
+import { SitePage, CrawlerConfig, GraphData, Actor, ProjectOwner } from './types';
 import { analyzeSiteStructure } from './services/geminiService';
 import { supabase, supabaseService } from './services/supabaseService';
 import { sessionUtils } from './utils/session';
@@ -116,6 +116,7 @@ export default function App() {
   const [selectedNodeData, setSelectedNodeData] = useState<SitePage | null>(null);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
   const [actor, setActor] = useState<Actor | null>(null);
+  const [owners, setOwners] = useState<ProjectOwner[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -206,11 +207,13 @@ export default function App() {
       if (!project) throw new Error('Project not found');
 
       const loadedPages = await supabaseService.getPages(projectId);
+      const loadedOwners = await supabaseService.getProjectOwners(projectId);
 
       setCurrentProjectId(projectId);
       setProjectTitle(project.title);
       setPages(loadedPages);
       setTreeData(buildTreeFromPages(loadedPages));
+      setOwners(loadedOwners);
       setHasCrawled(true);
     } catch (err: any) {
       console.error('Load error:', err);
@@ -231,11 +234,15 @@ export default function App() {
     if (currentProjectId && oldPage && actor) {
       try {
         if ('status' in updates && updates.status !== oldPage.status) {
-          await supabaseService.updatePageStatus(currentProjectId, id, updates.status!, updates.notes);
+          await supabaseService.updatePageStatus(currentProjectId, id, updates.status!, updates.notes, updates.mergeTargetId);
           await supabaseService.logActivity(currentProjectId, 'status_changed', actor, id, {
             oldStatus: oldPage.status,
             newStatus: updates.status,
           });
+        }
+
+        if ('mergeTargetId' in updates && updates.mergeTargetId !== oldPage.mergeTargetId) {
+          await supabaseService.updatePageStatus(currentProjectId, id, updates.status || oldPage.status || 'neutral', updates.notes, updates.mergeTargetId);
         }
 
         if ('ownerId' in updates && updates.ownerId !== oldPage.ownerId) {
@@ -677,6 +684,7 @@ export default function App() {
               onDataChange={handleTreeChange}
               label="Struktur Baum"
               projectId={currentProjectId || undefined}
+              owners={owners}
             />
           </div>
         )}

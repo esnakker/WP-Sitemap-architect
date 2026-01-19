@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tree, NodeRendererProps } from 'react-arborist';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import { SitePage, ContentType } from '../types';
+import { SitePage, ContentType, ProjectOwner } from '../types';
 import { TreeNode, moveTreeNode, getNodePosition } from '../utils/treeUtils';
 import { supabaseService } from '../services/supabaseService';
 import { FileText, Newspaper, Box, Ghost, ChevronRight, ChevronDown, GripVertical, AlertCircle, MessageSquareText } from 'lucide-react';
@@ -15,6 +15,7 @@ interface Props {
   onDataChange?: (newData: TreeNode[]) => void;
   label: string;
   projectId?: string;
+  owners?: ProjectOwner[];
 }
 
 const NodeIcon = ({ type }: { type: ContentType }) => {
@@ -26,19 +27,27 @@ const NodeIcon = ({ type }: { type: ContentType }) => {
   }
 };
 
-const CustomNode = ({ node, style, dragHandle, tree }: NodeRendererProps<TreeNode>) => {
-  const isGhost = node.data.type === ContentType.GHOST;
+const CustomNode = ({ node, style, dragHandle, tree, owners }: NodeRendererProps<TreeNode> & { owners?: ProjectOwner[] }) => {
+  const isGhost = node.data.type === ContentType.GHOST || node.data.status === 'ghost';
   const hasNotes = !!node.data.notes && node.data.notes.trim().length > 0;
-  
+
   // Explicitly check for children existence to determine if arrow should be shown
   const childCount = node.data.children ? node.data.children.length : 0;
   const hasChildren = childCount > 0;
+
+  // Find owner color
+  const ownerColor = node.data.ownerId && owners
+    ? owners.find(o => o.id === node.data.ownerId)?.color
+    : undefined;
 
   // Status Styling
   let statusStyle = "";
   if (node.data.status === 'keep') statusStyle = "bg-green-50/50 border-green-200";
   if (node.data.status === 'move') statusStyle = "bg-orange-50/50 border-orange-200";
   if (node.data.status === 'delete') statusStyle = "bg-red-50/50 border-red-200 opacity-60";
+  if (node.data.status === 'ghost') statusStyle = "bg-slate-50/50 border-slate-200 border-dashed";
+  if (node.data.status === 'update') statusStyle = "bg-yellow-50/50 border-yellow-200";
+  if (node.data.status === 'merge') statusStyle = "bg-amber-50/50 border-amber-200";
 
   return (
     <div
@@ -52,10 +61,10 @@ const CustomNode = ({ node, style, dragHandle, tree }: NodeRendererProps<TreeNod
         isGhost ? "opacity-70" : ""
       )}
     >
-      <div 
-        onClick={(e) => { 
-            e.stopPropagation(); 
-            if (hasChildren) node.toggle(); 
+      <div
+        onClick={(e) => {
+            e.stopPropagation();
+            if (hasChildren) node.toggle();
         }}
         className={clsx(
             "p-1 rounded shrink-0 flex items-center justify-center",
@@ -74,12 +83,21 @@ const CustomNode = ({ node, style, dragHandle, tree }: NodeRendererProps<TreeNod
         </span>
       )}
 
+      {/* Owner Color Indicator */}
+      {ownerColor && (
+        <div
+          className="w-2 h-2 rounded-full shrink-0 border border-white shadow-sm"
+          style={{ backgroundColor: ownerColor }}
+          title="Assigned owner"
+        />
+      )}
+
       <div className="shrink-0">
          <NodeIcon type={node.data.type} />
       </div>
 
       <span className={clsx(
-          "text-sm truncate select-none flex-1 flex items-center gap-2", 
+          "text-sm truncate select-none flex-1 flex items-center gap-2",
           isGhost ? "italic text-slate-500" : "text-slate-700 font-medium"
       )}>
         {node.data.title}
@@ -96,7 +114,7 @@ const CustomNode = ({ node, style, dragHandle, tree }: NodeRendererProps<TreeNod
 // Workaround for AutoSizer type incompatibility in strict TS environments
 const Sizer = AutoSizer as any;
 
-const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDataChange, label, projectId }) => {
+const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDataChange, label, projectId, owners }) => {
 
   // Handle Tree Updates (Drag & Drop)
   const handleMove = async ({ dragIds, parentId, index }: any) => {
@@ -110,7 +128,7 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
     // Calculate new state
     const newData = moveTreeNode(data, dragIds, parentId, index);
 
-    // Save history if projectId is available
+    // Save history and update moved_from_parent_id if projectId is available
     if (projectId && oldPosition.parentId !== parentId) {
       try {
         await supabaseService.savePageHistory(
@@ -120,6 +138,12 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
           parentId,
           oldPosition.menuOrder,
           index
+        );
+
+        await supabaseService.updatePageMovedFrom(
+          projectId,
+          dragId,
+          oldPosition.parentId
         );
       } catch (err) {
         console.error('Failed to save page history:', err);
@@ -161,7 +185,7 @@ const SiteTree: React.FC<Props> = ({ data, readOnly = false, onSelectNode, onDat
                         }
                     }}
                 >
-                    {CustomNode}
+                    {(props) => <CustomNode {...props} owners={owners} />}
                 </Tree>
             )}
         </Sizer>
