@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { SitePage, PageStatus, ProjectOwner, Actor } from '../types';
+import { SitePage, PageStatus, ProjectOwner, Actor, PageAnalyticsSummary } from '../types';
 import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, Ghost, FileEdit, Merge, Archive, ExternalLinkIcon, Plus } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
+import { analyticsService } from '../services/analyticsService';
 import { CommentsSection } from './CommentsSection';
+import { AnalyticsChart } from './AnalyticsChart';
 import clsx from 'clsx';
 
 interface Props {
@@ -19,6 +21,8 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
   const [isUndoing, setIsUndoing] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
   const [owners, setOwners] = useState<ProjectOwner[]>([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState<PageAnalyticsSummary | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   useEffect(() => {
     if (!node || !projectId) {
@@ -53,6 +57,33 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
 
     loadOwners();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!node || !projectId) {
+      setAnalyticsSummary(null);
+      return;
+    }
+
+    const loadAnalytics = async () => {
+      setIsLoadingAnalytics(true);
+      try {
+        const analyticsData = await supabaseService.getPageAnalytics(projectId, node.id);
+        if (analyticsData.length > 0) {
+          const summary = analyticsService.calculateSummary(analyticsData);
+          setAnalyticsSummary(summary);
+        } else {
+          setAnalyticsSummary(null);
+        }
+      } catch (err) {
+        console.error('Failed to load analytics:', err);
+        setAnalyticsSummary(null);
+      } finally {
+        setIsLoadingAnalytics(false);
+      }
+    };
+
+    loadAnalytics();
+  }, [node, projectId]);
 
   if (!node) return null;
 
@@ -301,6 +332,25 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
                 <span>High</span>
             </div>
         </div>
+
+        {/* Analytics */}
+        {isLoadingAnalytics && (
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-center justify-center">
+                <Loader2 size={20} className="text-slate-400 animate-spin" />
+            </div>
+        )}
+        {!isLoadingAnalytics && analyticsSummary && (
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <AnalyticsChart summary={analyticsSummary} />
+            </div>
+        )}
+        {!isLoadingAnalytics && !analyticsSummary && projectId && (
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <p className="text-xs text-slate-500 text-center">
+                    Keine Analytics-Daten vorhanden
+                </p>
+            </div>
+        )}
 
         {/* Comments */}
         {projectId && actor && (

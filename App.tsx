@@ -530,7 +530,7 @@ export default function App() {
         </div>
 
         <div className="w-auto flex justify-end gap-2">
-          {currentProjectId && <ProjectToolbar projectId={currentProjectId} />}
+          {currentProjectId && <ProjectToolbar projectId={currentProjectId} pages={pages} />}
 
           <button
             onClick={() => setShowActivityFeed(!showActivityFeed)}

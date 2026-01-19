@@ -7,7 +7,9 @@ import {
   ActivityActionType,
   ProjectSnapshot,
   ProjectShareLink,
-  Actor
+  Actor,
+  AnalyticsCredentials,
+  PageAnalytics
 } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -609,5 +611,112 @@ export const supabaseService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async saveAnalyticsCredentials(
+    projectId: string,
+    propertyId: string,
+    credentialsJson: any
+  ): Promise<AnalyticsCredentials> {
+    const { data, error } = await supabase
+      .from('analytics_credentials')
+      .upsert({
+        project_id: projectId,
+        property_id: propertyId,
+        credentials_json: credentialsJson,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'project_id' })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Failed to save analytics credentials');
+    return data;
+  },
+
+  async getAnalyticsCredentials(projectId: string): Promise<AnalyticsCredentials | null> {
+    const { data, error } = await supabase
+      .from('analytics_credentials')
+      .select('*')
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteAnalyticsCredentials(projectId: string): Promise<void> {
+    const { error } = await supabase
+      .from('analytics_credentials')
+      .delete()
+      .eq('project_id', projectId);
+
+    if (error) throw error;
+  },
+
+  async updateAnalyticsLastSync(projectId: string): Promise<void> {
+    const { error } = await supabase
+      .from('analytics_credentials')
+      .update({
+        last_sync_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('project_id', projectId);
+
+    if (error) throw error;
+  },
+
+  async savePageAnalytics(analyticsData: PageAnalytics[]): Promise<void> {
+    if (analyticsData.length === 0) return;
+
+    const { error } = await supabase
+      .from('page_analytics')
+      .upsert(analyticsData, {
+        onConflict: 'project_id,page_id,week_start_date'
+      });
+
+    if (error) throw error;
+  },
+
+  async getPageAnalytics(projectId: string, pageId: string): Promise<PageAnalytics[]> {
+    const { data, error } = await supabase
+      .from('page_analytics')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('page_id', pageId)
+      .order('week_start_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getAllPageAnalytics(projectId: string): Promise<Map<string, PageAnalytics[]>> {
+    const { data, error } = await supabase
+      .from('page_analytics')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('week_start_date', { ascending: true });
+
+    if (error) throw error;
+
+    const analyticsMap = new Map<string, PageAnalytics[]>();
+    (data || []).forEach(record => {
+      if (!analyticsMap.has(record.page_id)) {
+        analyticsMap.set(record.page_id, []);
+      }
+      analyticsMap.get(record.page_id)!.push(record);
+    });
+
+    return analyticsMap;
+  },
+
+  async deletePageAnalytics(projectId: string): Promise<void> {
+    const { error } = await supabase
+      .from('page_analytics')
+      .delete()
+      .eq('project_id', projectId);
+
+    if (error) throw error;
   },
 };

@@ -129,3 +129,38 @@ export interface FilterState {
   relevanceMax: number;
   searchText: string;
 }
+
+export interface AnalyticsCredentials {
+  id: string;
+  project_id: string;
+  property_id: string;
+  credentials_json: any;
+  is_active: boolean;
+  last_sync_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PageAnalytics {
+  id: string;
+  project_id: string;
+  page_id: string;
+  week_start_date: string;
+  pageviews: number;
+  unique_pageviews: number;
+  avg_time_on_page: number;
+  bounce_rate: number;
+  synced_at: string;
+  created_at: string;
+}
+
+export interface PageAnalyticsSummary {
+  totalPageviews: number;
+  avgWeeklyPageviews: number;
+  trend: 'up' | 'down' | 'stable';
+  trendPercentage: number;
+  weeklyData: {
+    week: string;
+    pageviews: number;
+  }[];
+}
