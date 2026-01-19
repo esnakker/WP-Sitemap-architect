@@ -51,9 +51,13 @@ export interface PageHistory {
 
 export const supabaseService = {
   async createProject(url: string, title: string, description?: string): Promise<Project> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('projects')
       .insert({
+        user_id: user.id,
         url,
         title,
         description,
