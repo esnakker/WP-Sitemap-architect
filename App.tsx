@@ -25,6 +25,7 @@ import NodeDetails from './components/NodeDetails';
 import SiteTree from './components/SiteTree';
 import { Auth, LogoutButton } from './components/Auth';
 import { ProjectManager } from './components/ProjectManager';
+import { ProjectForm } from './components/ProjectForm';
 import { Layout, Network, ListTree, Filter, ImageDown, Loader2, ArrowLeft } from 'lucide-react';
 
 const nodeTypes = {
@@ -92,13 +93,15 @@ export default function App() {
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
-  const [isSavingProject, setIsSavingProject] = useState(false);
   const [refreshProjects, setRefreshProjects] = useState(0);
+  const [showProjectForm, setShowProjectForm] = useState(false);
 
   const [pages, setPages] = useState<SitePage[]>([]);
   const [isCrawling, setIsCrawling] = useState(false);
+  const [crawlStatus, setCrawlStatus] = useState<string>('');
   const [hasCrawled, setHasCrawled] = useState(false);
   const [isImportingImages, setIsImportingImages] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [visualMode, setVisualMode] = useState<'flow' | 'tree'>('flow');
   const [hideEmptyRoots, setHideEmptyRoots] = useState(false);
@@ -130,59 +133,55 @@ export default function App() {
     return () => subscription?.unsubscribe();
   }, []);
 
+  const handleNewProject = async (data: { title: string; url: string; description: string }) => {
+    try {
+      setCrawlStatus('Erstelle Projekt...');
+      const project = await supabaseService.createProject(data.url, data.title, data.description);
+      setCurrentProjectId(project.id);
+      setProjectTitle(project.title);
+      setShowProjectForm(false);
+
+      setCrawlStatus('Starte Crawl...');
+      await handleCrawl({
+        url: data.url,
+        includePages: true,
+        includePosts: false,
+        includeCustom: false,
+      });
+
+      setRefreshProjects(r => r + 1);
+    } catch (err: any) {
+      console.error('Create project error:', err);
+      throw err;
+    }
+  };
+
   const handleCrawl = async (config: CrawlerConfig) => {
     setIsCrawling(true);
+    setCrawlStatus('Starte Analyse...');
     try {
-      const resultPages = await analyzeSiteStructure(config);
+      const resultPages = await analyzeSiteStructure(config, (status) => {
+        setCrawlStatus(status);
+      });
+
       setPages(resultPages);
       setTreeData(buildTreeFromPages(resultPages));
       setHasCrawled(true);
 
-      if (!currentProjectId) {
-        setProjectTitle(new URL(config.url).hostname);
+      if (currentProjectId) {
+        setCrawlStatus('Speichere Seiten in Datenbank...');
+        await supabaseService.savePages(currentProjectId, resultPages);
+        setCrawlStatus('Fertig!');
       }
     } catch (e) {
       console.error(e);
       alert("Fehler beim Laden der Struktur. Prüfen Sie die Konsole oder CORS-Einstellungen.");
     } finally {
       setIsCrawling(false);
+      setTimeout(() => setCrawlStatus(''), 2000);
     }
   };
 
-  const saveProjectToDatabase = async () => {
-    if (!pages.length) {
-      alert('Keine Daten zum Speichern');
-      return;
-    }
-
-    setIsSavingProject(true);
-    try {
-      let projectId = currentProjectId;
-
-      if (!projectId) {
-        const project = await supabaseService.createProject(
-          pages[0]?.url || 'Unknown',
-          projectTitle || 'Unnamed Project',
-          'Crawled WordPress site structure'
-        );
-        projectId = project.id;
-        setCurrentProjectId(projectId);
-      } else {
-        await supabaseService.updateProject(projectId, {
-          title: projectTitle,
-        });
-      }
-
-      await supabaseService.savePages(projectId, pages);
-      alert('Projekt erfolgreich gespeichert!');
-      setRefreshProjects(r => r + 1);
-    } catch (err: any) {
-      console.error('Save error:', err);
-      alert('Fehler beim Speichern: ' + err.message);
-    } finally {
-      setIsSavingProject(false);
-    }
-  };
 
   const loadProjectFromDatabase = async (projectId: string) => {
     try {
@@ -205,7 +204,7 @@ export default function App() {
     }
   };
 
-  const handleNodeUpdate = (id: string, updates: Partial<SitePage>) => {
+  const handleNodeUpdate = async (id: string, updates: Partial<SitePage>) => {
     const updatedPages = pages.map(p => p.id === id ? { ...p, ...updates } : p);
     setPages(updatedPages);
 
@@ -217,7 +216,14 @@ export default function App() {
     }
 
     if (currentProjectId) {
-      supabaseService.updatePageStatus(currentProjectId, id, updates.status || 'neutral', updates.notes);
+      setIsSaving(true);
+      try {
+        await supabaseService.updatePageStatus(currentProjectId, id, updates.status || 'neutral', updates.notes);
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      } finally {
+        setTimeout(() => setIsSaving(false), 500);
+      }
     }
   };
 
@@ -271,8 +277,13 @@ export default function App() {
         alert(`${imageMap.size} Screenshots erfolgreich importiert!`);
 
         if (currentProjectId) {
-          for (const [id, url] of imageMap) {
-            await supabaseService.updatePageThumbnail(currentProjectId, id, url);
+          setIsSaving(true);
+          try {
+            for (const [id, url] of imageMap) {
+              await supabaseService.updatePageThumbnail(currentProjectId, id, url);
+            }
+          } finally {
+            setTimeout(() => setIsSaving(false), 500);
           }
         }
       }
@@ -323,10 +334,21 @@ export default function App() {
     [setGraphData]
   );
 
-  const handleTreeChange = (newTree: TreeNode[]) => {
+  const handleTreeChange = async (newTree: TreeNode[]) => {
     setTreeData(newTree);
     const flatPages = flattenTree(newTree);
     setPages(flatPages);
+
+    if (currentProjectId) {
+      setIsSaving(true);
+      try {
+        await supabaseService.savePages(currentProjectId, flatPages);
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      } finally {
+        setTimeout(() => setIsSaving(false), 500);
+      }
+    }
   };
 
   const handleNodeClick = (e: React.MouseEvent, node: Node) => {
@@ -382,25 +404,29 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
+              <>
                 <ProjectManager
                   onProjectSelect={loadProjectFromDatabase}
-                  onNewProject={() => setHasCrawled(true)}
+                  onNewProject={() => setShowProjectForm(true)}
                   refreshTrigger={refreshProjects}
                 />
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-300" />
+                {showProjectForm && (
+                  <ProjectForm
+                    onSubmit={handleNewProject}
+                    onCancel={() => setShowProjectForm(false)}
+                  />
+                )}
+                {isCrawling && crawlStatus && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+                      <div className="flex flex-col items-center gap-4">
+                        <Loader2 className="animate-spin text-blue-600" size={48} />
+                        <p className="text-lg font-medium text-slate-900">{crawlStatus}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-slate-50 text-slate-500">oder</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg shadow-lg p-8">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Neue Crawl starten</h3>
-                  <SiteCrawler onCrawl={handleCrawl} isLoading={isCrawling} />
-                </div>
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -435,6 +461,18 @@ export default function App() {
               type="text"
               value={projectTitle}
               onChange={(e) => setProjectTitle(e.target.value)}
+              onBlur={async () => {
+                if (currentProjectId && projectTitle) {
+                  setIsSaving(true);
+                  try {
+                    await supabaseService.updateProject(currentProjectId, { title: projectTitle });
+                  } catch (err) {
+                    console.error('Failed to update title:', err);
+                  } finally {
+                    setTimeout(() => setIsSaving(false), 500);
+                  }
+                }
+              }}
               className="font-bold text-lg leading-none bg-transparent border-none outline-none text-slate-900"
               placeholder="Project Name"
             />
@@ -476,14 +514,19 @@ export default function App() {
             Screenshots
           </button>
 
-          <button
-            onClick={saveProjectToDatabase}
-            disabled={isSavingProject}
-            className="flex items-center gap-2 px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-all disabled:opacity-70"
-          >
-            {isSavingProject ? <Loader2 size={14} className="animate-spin" /> : null}
-            Speichern
-          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-500">
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin text-blue-600" />
+                <span className="text-blue-600">Speichert...</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span>Gespeichert</span>
+              </>
+            )}
+          </div>
 
           {visualMode === 'flow' && (
             <button

@@ -200,19 +200,25 @@ const buildAndFlattenTree = (
     return result;
 };
 
-export const analyzeSiteStructure = async (config: CrawlerConfig): Promise<SitePage[]> => {
+export const analyzeSiteStructure = async (
+  config: CrawlerConfig,
+  onProgress?: (status: string) => void
+): Promise<SitePage[]> => {
   console.group("🔍 START: Analyze Structure");
+  onProgress?.('Starte Analyse...');
   const cleanUrl = config.url.replace(/\/$/, "");
   let allItems: SitePage[] = [];
 
   try {
     // 1. Fetch Pages
     if (config.includePages) {
+        onProgress?.('Lade Seiten...');
         const pagesData = await fetchAllItems(cleanUrl, '/wp-json/wp/v2/pages', config);
-        
+
         // Filter out items from other domains (WPML leakage)
         const filteredData = pagesData.filter((p: any) => isSameDomain(p.link, cleanUrl));
         console.log(`ℹ️ Filtered ${pagesData.length - filteredData.length} items from other domains.`);
+        onProgress?.(`${filteredData.length} Seiten gefunden`);
 
         const mappedPages = filteredData.map((p: any) => ({
             id: String(p.id),
@@ -229,10 +235,12 @@ export const analyzeSiteStructure = async (config: CrawlerConfig): Promise<SiteP
 
     // 2. Fetch Posts
     if (config.includePosts) {
+        onProgress?.('Lade Beiträge...');
         const postsData = await fetchAllItems(cleanUrl, '/wp-json/wp/v2/posts', config);
-        
+
         // Filter posts as well
         const filteredPosts = postsData.filter((p: any) => isSameDomain(p.link, cleanUrl));
+        onProgress?.(`${filteredPosts.length} Beiträge gefunden`);
 
         if (filteredPosts.length > 0) {
             const blogPage = allItems.find(p => /blog|news|aktuelles/i.test(p.title));
@@ -284,7 +292,8 @@ export const analyzeSiteStructure = async (config: CrawlerConfig): Promise<SiteP
 
         if (missingParentIds.size > 0) {
             console.log(`🚑 Rescue Mode Iteration ${rescueIterations}: Found ${missingParentIds.size} missing parents. Fetching...`);
-            
+            onProgress?.(`Lade fehlende Elternelemente (${missingParentIds.size})...`);
+
             const promises = Array.from(missingParentIds).map(id => rescueItem(cleanUrl, id, config));
             const rescuedResults = await Promise.all(promises);
             
@@ -323,9 +332,11 @@ export const analyzeSiteStructure = async (config: CrawlerConfig): Promise<SiteP
     });
 
     console.log(`🌲 Flattening Tree... Kept ${validItems.length} of ${allItems.length} items.`);
-    
+    onProgress?.('Baue Baumstruktur...');
+
     // Sort and flatten
     const sorted = buildAndFlattenTree(validItems, null);
+    onProgress?.(`Struktur fertig: ${sorted.length} Elemente`);
     
     // Safety: Orphan handling (items that exist but became disconnected during flatten)
     // In strict pruning mode, this shouldn't happen often, but good for robustness
