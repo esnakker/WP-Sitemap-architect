@@ -15,7 +15,6 @@ export type PageStatus =
   | 'redirect'
   | 'new'
   | 'remove'
-  | 'ghost'
   | 'update'
   | 'merge';
 

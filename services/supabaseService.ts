@@ -719,4 +719,14 @@ export const supabaseService = {
 
     if (error) throw error;
   },
+
+  async deletePage(projectId: string, pageId: string): Promise<void> {
+    const { error } = await supabase
+      .from('pages')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('page_id', pageId);
+
+    if (error) throw error;
+  },
 };

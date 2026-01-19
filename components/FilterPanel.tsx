@@ -24,7 +24,6 @@ const statusOptions: { value: PageStatus; label: string; color: string }[] = [
   { value: 'redirect', label: 'Redirect', color: 'bg-blue-100 text-blue-700' },
   { value: 'new', label: 'New', color: 'bg-emerald-100 text-emerald-700' },
   { value: 'remove', label: 'Remove', color: 'bg-red-100 text-red-700' },
-  { value: 'ghost', label: 'Ghost', color: 'bg-slate-100 text-slate-700' },
   { value: 'update', label: 'Update', color: 'bg-yellow-100 text-yellow-700' },
   { value: 'merge', label: 'Merge', color: 'bg-amber-100 text-amber-700' },
 ];

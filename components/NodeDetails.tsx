@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SitePage, PageStatus, ProjectOwner, Actor, PageAnalyticsSummary } from '../types';
-import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, Ghost, FileEdit, Merge, Archive, ExternalLinkIcon, Plus } from 'lucide-react';
+import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, FileEdit, Merge, Archive, ExternalLinkIcon, Plus } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
 import { analyticsService } from '../services/analyticsService';
 import { CommentsSection } from './CommentsSection';
@@ -231,20 +231,6 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
                 >
                     <Plus size={14} />
                     New
-                </button>
-
-                <button
-                    onClick={() => handleStatusToggle('ghost')}
-                    className={clsx(
-                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
-                        currentStatus === 'ghost'
-                            ? "bg-slate-100 border-slate-300 text-slate-800 shadow-sm"
-                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-200"
-                    )}
-                    title="Ghost node - planned page"
-                >
-                    <Ghost size={14} />
-                    Ghost
                 </button>
 
                 <button

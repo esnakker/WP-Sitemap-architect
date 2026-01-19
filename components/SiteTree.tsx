@@ -40,7 +40,7 @@ const CustomNode = ({
   owners?: ProjectOwner[];
   isPageFiltered?: (page: SitePage) => boolean;
 }) => {
-  const isGhost = node.data.type === ContentType.GHOST || node.data.status === 'ghost';
+  const isGhost = node.data.type === ContentType.GHOST;
   const hasNotes = !!node.data.notes && node.data.notes.trim().length > 0;
   const isFiltered = isPageFiltered ? isPageFiltered(node.data) : false;
 
@@ -53,14 +53,17 @@ const CustomNode = ({
     ? owners.find(o => o.id === node.data.ownerId)?.color
     : undefined;
 
-  // Status Styling
+  // Status Styling (Ghost is handled by ContentType, not status)
   let statusStyle = "";
-  if (node.data.status === 'keep') statusStyle = "bg-green-50/50 border-green-200";
-  if (node.data.status === 'move') statusStyle = "bg-orange-50/50 border-orange-200";
-  if (node.data.status === 'delete') statusStyle = "bg-red-50/50 border-red-200 opacity-60";
-  if (node.data.status === 'ghost') statusStyle = "bg-slate-50/50 border-slate-200 border-dashed";
-  if (node.data.status === 'update') statusStyle = "bg-yellow-50/50 border-yellow-200";
-  if (node.data.status === 'merge') statusStyle = "bg-amber-50/50 border-amber-200";
+  if (isGhost) {
+    statusStyle = "bg-slate-50/50 border-slate-200 border-dashed";
+  } else {
+    if (node.data.status === 'keep') statusStyle = "bg-green-50/50 border-green-200";
+    if (node.data.status === 'move') statusStyle = "bg-orange-50/50 border-orange-200";
+    if (node.data.status === 'delete') statusStyle = "bg-red-50/50 border-red-200 opacity-60";
+    if (node.data.status === 'update') statusStyle = "bg-yellow-50/50 border-yellow-200";
+    if (node.data.status === 'merge') statusStyle = "bg-amber-50/50 border-amber-200";
+  }
 
   return (
     <div
