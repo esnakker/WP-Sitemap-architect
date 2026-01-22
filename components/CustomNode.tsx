@@ -2,12 +2,19 @@ import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { SitePage, ContentType } from '../types';
 import { getTypeColor } from '../utils/graphUtils';
-import { ExternalLink, MessageSquareText } from 'lucide-react';
+import { ExternalLink, MessageSquareText, ChevronDown, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 
-const CustomNode = ({ data, selected }: NodeProps<SitePage>) => {
+interface CustomNodeData extends SitePage {
+  childCount?: number;
+  isExpanded?: boolean;
+  onToggle?: (nodeId: string) => void;
+}
+
+const CustomNode = ({ data, selected }: NodeProps<CustomNodeData>) => {
   const isGhost = data.type === ContentType.GHOST;
   const hasNotes = !!data.notes && data.notes.trim().length > 0;
+  const hasChildren = (data.childCount ?? 0) > 0;
 
   // Status Colors
   let statusClasses = "bg-white border-slate-300";
@@ -39,6 +46,30 @@ const CustomNode = ({ data, selected }: NodeProps<SitePage>) => {
         isGhost ? "opacity-70" : ""
     )}>
       <Handle type="target" position={Position.Top} className="!bg-slate-400 !w-2 !h-2" />
+
+      {hasChildren && (
+        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (data.onToggle) {
+                data.onToggle(data.id);
+              }
+            }}
+            className="bg-white border border-slate-300 rounded-full p-1 hover:bg-slate-50 hover:border-slate-400 shadow-sm transition-colors"
+            title={data.isExpanded ? 'Collapse children' : 'Expand children'}
+          >
+            {data.isExpanded ? (
+              <ChevronDown size={12} className="text-slate-600" />
+            ) : (
+              <ChevronRight size={12} className="text-slate-600" />
+            )}
+          </button>
+          <span className="bg-slate-100 border border-slate-300 rounded-full px-1.5 py-0.5 text-[10px] text-slate-600 font-medium shadow-sm">
+            {data.childCount}
+          </span>
+        </div>
+      )}
 
       {hasNotes && (
           <div className="absolute top-1 right-1 text-slate-400">

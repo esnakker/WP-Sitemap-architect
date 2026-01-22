@@ -117,6 +117,7 @@ export default function App() {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   const [graphData, setGraphData] = useState<GraphData>({ nodes: [], edges: [] });
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [selectedNodeData, setSelectedNodeData] = useState<SitePage | null>(null);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
@@ -308,12 +309,72 @@ export default function App() {
     return pages;
   };
 
+  const toggleNodeExpansion = (nodeId: string) => {
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId);
+      } else {
+        newSet.add(nodeId);
+      }
+      return newSet;
+    });
+  };
+
+  const getVisiblePages = (allPages: SitePage[]): SitePage[] => {
+    const visibleSet = new Set<string>();
+
+    // Add all root nodes (no parent)
+    allPages.forEach(page => {
+      if (!page.parentId) {
+        visibleSet.add(page.id);
+      }
+    });
+
+    // Recursively add children of expanded nodes
+    const addExpandedChildren = (parentId: string) => {
+      if (!expandedNodes.has(parentId)) return;
+
+      allPages.forEach(page => {
+        if (page.parentId === parentId) {
+          visibleSet.add(page.id);
+          addExpandedChildren(page.id);
+        }
+      });
+    };
+
+    allPages.forEach(page => {
+      if (!page.parentId) {
+        addExpandedChildren(page.id);
+      }
+    });
+
+    return allPages.filter(page => visibleSet.has(page.id));
+  };
+
   useEffect(() => {
     if (pages.length === 0) return;
 
     const filteredPages = applyFiltersToPages(pages);
-    setGraphData(buildGraphFromPages(filteredPages));
-  }, [pages, filters]);
+    const visiblePages = getVisiblePages(filteredPages);
+    const graph = buildGraphFromPages(visiblePages);
+
+    // Add child count to each node
+    const nodesWithChildCount = graph.nodes.map(node => {
+      const childCount = filteredPages.filter(p => p.parentId === node.id).length;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          childCount,
+          isExpanded: expandedNodes.has(node.id),
+          onToggle: toggleNodeExpansion
+        }
+      };
+    });
+
+    setGraphData({ ...graph, nodes: nodesWithChildCount });
+  }, [pages, filters, expandedNodes]);
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setGraphData((nds) => ({ ...nds, nodes: applyNodeChanges(changes, nds.nodes) })),
