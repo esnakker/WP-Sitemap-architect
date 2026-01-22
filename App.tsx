@@ -108,6 +108,7 @@ export default function App() {
   const [isExporting, setIsExporting] = useState(false);
 
   const [visualMode, setVisualMode] = useState<'flow' | 'tree'>('flow');
+  const [showStructureView, setShowStructureView] = useState(false);
 
   const [filters, setFilters] = useState({
     statuses: [] as PageStatus[],
@@ -508,25 +509,42 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setVisualMode('flow')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-              visualMode === 'flow' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            onClick={() => setShowStructureView(!showStructureView)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border text-sm font-medium transition-all ${
+              showStructureView
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
+            title="Toggle structure view"
           >
-            <Network size={16} />
-            Graph View
+            <Layout size={16} />
+            {showStructureView ? 'Hide Structure' : 'Show Structure'}
           </button>
-          <button
-            onClick={() => setVisualMode('tree')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-              visualMode === 'tree' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <ListTree size={16} />
-            Tree View
-          </button>
+
+          {showStructureView && (
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+              <button
+                onClick={() => setVisualMode('flow')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  visualMode === 'flow' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Network size={16} />
+                Graph View
+              </button>
+              <button
+                onClick={() => setVisualMode('tree')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  visualMode === 'tree' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <ListTree size={16} />
+                Tree View
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="w-auto flex justify-end gap-2">
@@ -603,28 +621,50 @@ export default function App() {
       </header>
 
       <main className="flex-1 relative flex overflow-hidden">
-        {visualMode === 'flow' ? (
-          <ReactFlowProvider>
-            <FlowEditor
-              nodes={graphData.nodes}
-              edges={graphData.edges}
-              onNodeClick={handleNodeClick}
-              label="Struktur Graph"
-            />
-          </ReactFlowProvider>
+        {showStructureView ? (
+          <>
+            {visualMode === 'flow' ? (
+              <ReactFlowProvider>
+                <FlowEditor
+                  nodes={graphData.nodes}
+                  edges={graphData.edges}
+                  onNodeClick={handleNodeClick}
+                  label="Struktur Graph"
+                />
+              </ReactFlowProvider>
+            ) : (
+              <div className="w-full h-full max-w-4xl mx-auto border-x border-slate-200 bg-white shadow-sm">
+                <SiteTree
+                  data={treeData}
+                  readOnly={false}
+                  onSelectNode={handleTreeNodeSelect}
+                  onDataChange={handleTreeChange}
+                  label="Struktur Baum"
+                  projectId={currentProjectId || undefined}
+                  owners={owners}
+                  isPageFiltered={isPageFiltered}
+                  hideFiltered={filters.hideFiltered}
+                />
+              </div>
+            )}
+          </>
         ) : (
-          <div className="w-full h-full max-w-4xl mx-auto border-x border-slate-200 bg-white shadow-sm">
-            <SiteTree
-              data={treeData}
-              readOnly={false}
-              onSelectNode={handleTreeNodeSelect}
-              onDataChange={handleTreeChange}
-              label="Struktur Baum"
-              projectId={currentProjectId || undefined}
-              owners={owners}
-              isPageFiltered={isPageFiltered}
-              hideFiltered={filters.hideFiltered}
-            />
+          <div className="w-full h-full flex items-center justify-center bg-slate-50">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-100 rounded-full mb-4">
+                <Layout size={40} className="text-slate-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-700 mb-2">Structure View Hidden</h3>
+              <p className="text-slate-500 mb-6 max-w-md">
+                Click "Show Structure" in the header to view the graph or tree visualization
+              </p>
+              <button
+                onClick={() => setShowStructureView(true)}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Show Structure
+              </button>
+            </div>
           </div>
         )}
 
