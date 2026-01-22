@@ -218,6 +218,7 @@ const SiteTree: React.FC<Props> = ({
                     indent={24}
                     disableDrag={readOnly}
                     disableDrop={readOnly}
+                    initialOpenState={false}
                     onMove={handleMove}
                     onSelect={(nodes) => {
                         if (nodes.length > 0 && nodes[0].data) {
