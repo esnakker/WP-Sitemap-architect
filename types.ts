@@ -16,7 +16,8 @@ export type PageStatus =
   | 'new'
   | 'remove'
   | 'update'
-  | 'merge';
+  | 'merge'
+  | 'hide_in_navigation';
 
 export interface SitePage {
   id: string;

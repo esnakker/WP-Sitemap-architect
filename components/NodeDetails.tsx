@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SitePage, PageStatus, ProjectOwner, Actor, PageAnalyticsSummary } from '../types';
-import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, FileEdit, Merge, Archive, ExternalLinkIcon, Plus } from 'lucide-react';
+import { X, ExternalLink, Link as LinkIcon, Trash2, ArrowRightLeft, CheckCircle, RotateCcw, Loader2, FileEdit, Merge, Archive, ExternalLinkIcon, Plus, EyeOff } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService';
 import { analyticsService } from '../services/analyticsService';
 import { CommentsSection } from './CommentsSection';
@@ -259,6 +259,20 @@ const NodeDetails: React.FC<Props> = ({ node, onClose, onUpdate, allPages = [], 
                 >
                     <Merge size={14} />
                     Merge
+                </button>
+
+                <button
+                    onClick={() => handleStatusToggle('hide_in_navigation')}
+                    className={clsx(
+                        "py-2 px-1 rounded flex flex-col items-center gap-1 transition-all text-[10px] font-medium border",
+                        currentStatus === 'hide_in_navigation'
+                            ? "bg-purple-100 border-purple-300 text-purple-800 shadow-sm"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-purple-50 hover:border-purple-200"
+                    )}
+                    title="Hide in navigation menus"
+                >
+                    <EyeOff size={14} />
+                    Hide Nav
                 </button>
             </div>
 
